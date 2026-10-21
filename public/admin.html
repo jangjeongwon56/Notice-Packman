@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>업데이트 소식 관리</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: 로그인 화면 하나, 로그인 뒤에는 위에서 아래로 새 글 쓰기, 올린 글, 페이지 정보 순서의 한 칼럼 작업 화면. */
+:root {
+  color-scheme: light;
+  --bg: #F2F4F5; --surface: #FFFFFF; --fg: #1A2329; --muted: #5B6870; --line: #D9DFE2;
+  --accent: #0E5A78; --accent-ink: #FFFFFF; --danger: #A3262A; --ok: #1F6B45;
+  --new: #0E5A78; --new-bg: #DCEBF2; --imp: #1F6B45; --imp-bg: #DDEFE4;
+  --fix: #8A5A00; --fix-bg: #F6E8C8; --note: #4A5560; --note-bg: #E6EAEC;
+  --font-body: "Noto Sans KR", "Malgun Gothic", "맑은 고딕", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #12181C; --surface: #1B2328; --fg: #E7ECEE; --muted: #9AA7AE; --line: #2E3A41;
+    --accent: #6FB8D6; --accent-ink: #0B1A21; --danger: #F08A8D; --ok: #7FCB9F;
+    --new: #8CC7E0; --new-bg: #1C3340; --imp: #7FCB9F; --imp-bg: #1B3327;
+    --fix: #E5B867; --fix-bg: #3A2E14; --note: #B4BEC4; --note-bg: #273036;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.7; padding: 40px 16px 80px; }
+.wrap { max-width: 760px; margin: 0 auto; display: grid; gap: 20px; }
+.top { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; }
+h1 { margin: 0; font-size: 26px; line-height: 1.3; }
+h2 { margin: 0; font-size: 16px; }
+.lead { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 18px; display: grid; gap: 14px; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 12px; font-weight: 500; color: var(--muted); }
+.field input, .field select, .field textarea { font: inherit; font-size: 15px; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; min-width: 0; }
+.field textarea { min-height: 150px; resize: vertical; line-height: 1.6; }
+.hint { font-size: 12px; color: var(--muted); margin: 0; }
+.btn { font: inherit; font-size: 13px; font-weight: 500; line-height: 1; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); cursor: pointer; text-decoration: none; display: inline-block; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+.btn.solid-danger { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+.btn.small { padding: 6px 10px; font-size: 12px; }
+.btn:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.msg { font-size: 14px; color: var(--muted); margin: 0; }
+.msg.err { color: var(--danger); }
+.msg.ok { color: var(--ok); }
+.item { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 4px 16px; padding: 12px 0; border-top: 1px solid var(--line); }
+.item:first-of-type { border-top: 0; }
+.item .d { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.item .t { font-weight: 700; overflow-wrap: anywhere; }
+.tag { display: inline-block; font-size: 12px; font-weight: 500; padding: 0 9px; border-radius: 999px; margin-right: 8px; }
+.tag.new { background: var(--new-bg); color: var(--new); }
+.tag.imp { background: var(--imp-bg); color: var(--imp); }
+.tag.fix { background: var(--fix-bg); color: var(--fix); }
+.tag.note { background: var(--note-bg); color: var(--note); }
+.item .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
+.item .ask { font-size: 13px; color: var(--danger); }
+.empty { color: var(--muted); margin: 0; }
+.thumbs { display: flex; flex-wrap: wrap; gap: 10px; }
+.thumb { display: grid; gap: 6px; justify-items: start; }
+.thumb img { width: 140px; height: 105px; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); display: block; }
+.login { max-width: 420px; margin: 60px auto 0; }
+@media (max-width: 560px) {
+  .grid2 { grid-template-columns: minmax(0, 1fr); }
+  .item { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="wrap" id="root"><p class="msg">불러오는 중입니다…</p></div>
+<script>
+(function () {
+  'use strict';
+  var CATS = { new: '신규 기능', imp: '개선', fix: '오류 수정', note: '공지' };
+  var ORDER = ['new', 'imp', 'fix', 'note'];
+  var MAX_IMG = 3;      // 글 하나에 붙일 수 있는 사진 수
+  var MAX_SIDE = 1000;  // 사진의 긴 쪽을 이 픽셀로 줄임
+  var root = document.getElementById('root');
+
+  var S = {
+    phase: 'loading',   // loading | login | edit
+    problem: '', loginErr: '',
+    state: null, siteDraft: null,
+    editingId: null, confirmDel: null,
+    form: blankForm(),
+    msg: '', kind: '', busy: false, uploading: false, imgNote: '', conflict: false
+  };
+
+  function today() {
+    var t = new Date();
+    var p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return t.getFullYear() + '-' + p(t.getMonth() + 1) + '-' + p(t.getDate());
+  }
+  function blankForm() { return { date: today(), cat: 'new', title: '', body: '', images: [] }; }
+  function fmtDate(d) { return String(d || '').replace(/-/g, '.'); }
+  function sorted(posts) {
+    return posts.slice().sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (b.created || 0) - (a.created || 0);
+    });
+  }
+
+  function h(tag, attrs, kids) {
+    var el = document.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        var v = attrs[k];
+        if (v === null || v === undefined || v === false) return;
+        if (k === 'text') el.textContent = v;
+        else if (k === 'class') el.className = v;
+        else if (k === 'value') el.value = v;
+        else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+        else el.setAttribute(k, v === true ? '' : v);
+      });
+    }
+    (kids || []).forEach(function (c) {
+      if (c === null || c === undefined || c === false) return;
+      el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    });
+    return el;
+  }
+  function field(id, label, control, hint) {
+    return h('div', { class: 'field' }, [h('label', { for: id, text: label }), control, hint ? h('span', { class: 'hint', text: hint }) : null]);
+  }
+
+  /* ---------- 서버와 주고받기 ---------- */
+  function api(method, path, opts) {
+    opts = opts || {};
+    var headers = { 'X-Requested-With': 'sib' };
+    var body;
+    if (opts.raw) { headers['Content-Type'] = 'image/jpeg'; body = opts.raw; }
+    else if (opts.json !== undefined) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(opts.json); }
+    return fetch(path, { method: method, headers: headers, body: body, credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (j) { return { status: r.status, ok: r.ok, data: j }; });
+      });
+  }
+  function netErr() {
+    S.busy = false; S.uploading = false;
+    S.msg = '서버에 연결하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해 주세요.'; S.kind = 'err';
+    if (S.phase === 'loading') S.phase = 'login';
+    render();
+  }
+  function toLogin(text) { S.phase = 'login'; S.loginErr = text || ''; S.busy = false; S.uploading = false; render(); }
+
+  function loadPosts() {
+    return api('GET', '/api/posts').then(function (r) {
+      if (!r.ok) { S.msg = (r.data && r.data.error) || '글을 불러오지 못했습니다.'; S.kind = 'err'; S.phase = 'login'; render(); return; }
+      S.state = r.data;
+      S.siteDraft = { name: r.data.site.name || '', tagline: r.data.site.tagline || '', contact: r.data.site.contact || '' };
+      S.phase = 'edit'; S.msg = ''; render();
+    });
+  }
+  function init() {
+    api('GET', '/api/me').then(function (r) {
+      S.problem = r.data.problem || '';
+      if (r.data.admin) return loadPosts();
+      S.phase = 'login'; render();
+    }).catch(netErr);
+  }
+  function doLogin(pw) {
+    S.busy = true; S.loginErr = ''; render();
+    api('POST', '/api/login', { json: { password: pw } }).then(function (r) {
+      S.busy = false;
+      if (r.ok) return loadPosts();
+      S.loginErr = (r.data && r.data.error) || '로그인하지 못했습니다.'; render();
+    }).catch(netErr);
+  }
+  function doLogout() {
+    api('POST', '/api/logout').then(function () {
+      S.state = null; S.msg = ''; toLogin('');
+    }).catch(netErr);
+  }
+
+  function save(site, posts, okMsg, onOk) {
+    S.busy = true; S.msg = '저장하는 중입니다…'; S.kind = ''; render();
+    api('PUT', '/api/posts', { json: { rev: S.state.rev, site: site, posts: posts } }).then(function (r) {
+      S.busy = false;
+      if (r.ok) {
+        S.state = r.data;
+        S.siteDraft = { name: r.data.site.name || '', tagline: r.data.site.tagline || '', contact: r.data.site.contact || '' };
+        if (onOk) onOk();
+        S.msg = okMsg; S.kind = 'ok';
+      } else if (r.status === 401) {
+        toLogin('로그인이 만료되었습니다. 다시 로그인해 주세요.'); return;
+      } else if (r.status === 409) {
+        S.msg = '다른 곳에서 먼저 저장된 내용이 있습니다. 화면을 새로 불러온 뒤 다시 시도해 주세요.'; S.kind = 'err'; S.conflict = true;
+      } else {
+        S.msg = (r.data && r.data.error) || '저장하지 못했습니다.'; S.kind = 'err';
+      }
+      render();
+    }).catch(netErr);
+  }
+
+  /* ---------- 사진 ---------- */
+  function toJpeg(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, MAX_SIDE / Math.max(img.width, img.height));
+        var w = Math.max(1, Math.round(img.width * scale));
+        var hh = Math.max(1, Math.round(img.height * scale));
+        var c = document.createElement('canvas');
+        c.width = w; c.height = hh;
+        var ctx = c.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, hh);
+        ctx.drawImage(img, 0, 0, w, hh);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (b) { if (b) resolve(b); else reject(new Error('blob')); }, 'image/jpeg', 0.82);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('image')); };
+      img.src = url;
+    });
+  }
+  function addFiles(list) {
+    var files = Array.prototype.slice.call(list || []);
+    if (!files.length) return;
+    var room = MAX_IMG - S.form.images.length;
+    var use = files.slice(0, Math.max(0, room));
+    var skipped = files.length - use.length;
+    var failed = 0;
+    S.imgNote = ''; S.uploading = true; render();
+    use.reduce(function (chain, file) {
+      return chain.then(function () {
+        return toJpeg(file).then(function (blob) {
+          return api('POST', '/api/img', { raw: blob }).then(function (r) {
+            if (r.status === 401) throw { auth: true };
+            if (r.ok && r.data.id) S.form.images.push({ id: r.data.id, src: URL.createObjectURL(blob) });
+            else { failed++; S.imgNote = (r.data && r.data.error) || ''; }
+          });
+        }, function () { failed++; });
+      });
+    }, Promise.resolve()).then(function () {
+      var notes = [];
+      if (skipped) notes.push('사진은 글 하나에 최대 ' + MAX_IMG + '장까지라 ' + skipped + '장은 제외했습니다.');
+      if (failed) notes.push(failed + '장은 올리지 못했습니다. ' + (S.imgNote || 'JPG나 PNG 사진인지 확인해 주세요.'));
+      S.imgNote = notes.join(' ');
+      S.uploading = false; render();
+    }).catch(function (e) {
+      if (e && e.auth) toLogin('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+      else netErr();
+    });
+  }
+
+  /* ---------- 화면 ---------- */
+  function renderLogin() {
+    var pw = h('input', { id: 'pw', type: 'password', autocomplete: 'current-password', required: 'required' });
+    var form = h('form', { class: 'panel login' }, [
+      h('h2', { text: '관리자 로그인' }),
+      S.problem ? h('p', { class: 'msg err', text: S.problem }) : null,
+      field('pw', '비밀번호', pw),
+      h('div', { class: 'actions' }, [
+        h('button', { class: 'btn', type: 'submit', text: S.busy ? '확인하는 중…' : '로그인', disabled: S.busy || !!S.problem }),
+        h('span', { class: 'msg err', role: 'alert', text: S.loginErr })
+      ]),
+      S.msg && S.kind === 'err' ? h('p', { class: 'msg err', text: S.msg }) : null
+    ]);
+    form.addEventListener('submit', function (e) { e.preventDefault(); if (pw.value) doLogin(pw.value); });
+    root.appendChild(form);
+    setTimeout(function () { pw.focus(); }, 0);
+  }
+
+  function renderEdit() {
+    var st = S.state;
+    var locked = S.busy || S.uploading;
+
+    root.appendChild(h('div', { class: 'top' }, [
+      h('div', {}, [h('h1', { text: '업데이트 소식 관리' }), h('p', { class: 'lead', text: '저장하면 바로 거래처 화면에 올라갑니다.' })]),
+      h('div', { class: 'actions' }, [
+        h('a', { class: 'btn ghost', href: '/', target: '_blank', rel: 'noopener', text: '거래처 화면 보기' }),
+        h('button', { class: 'btn ghost', type: 'button', text: '로그아웃', onclick: doLogout })
+      ])
+    ]));
+
+    var status = h('p', { class: 'msg ' + S.kind, role: 'status', 'aria-live': 'polite', text: S.msg });
+    root.appendChild(status);
+    if (S.conflict) {
+      root.appendChild(h('div', { class: 'actions' }, [h('button', { class: 'btn', type: 'button', text: '화면 새로 불러오기', onclick: function () { S.conflict = false; S.form = blankForm(); S.editingId = null; loadPosts(); } })]));
+    }
+
+    // 새 글 쓰기 / 수정
+    var f = S.form;
+    var date = h('input', { id: 'f-date', type: 'date', value: f.date });
+    var sel = h('select', { id: 'f-cat' }, ORDER.map(function (k) {
+      var o = h('option', { value: k, text: CATS[k] });
+      if (k === f.cat) o.selected = true;
+      return o;
+    }));
+    var title = h('input', { id: 'f-title', type: 'text', value: f.title, maxlength: '120', placeholder: '예: 생산지시서 출력 속도 개선' });
+    var body = h('textarea', { id: 'f-body', maxlength: '5000', placeholder: '- 변경된 내용을 한 줄씩 적습니다.\n- 줄 맨 앞에 "- "를 붙이면 목록으로 표시됩니다.' });
+    body.value = f.body;
+    date.addEventListener('input', function () { f.date = date.value; });
+    sel.addEventListener('change', function () { f.cat = sel.value; });
+    title.addEventListener('input', function () { f.title = title.value; });
+    body.addEventListener('input', function () { f.body = body.value; });
+
+    var imgInput = h('input', { id: 'f-img', type: 'file', accept: 'image/*', multiple: true, onchange: function (e) { addFiles(e.target.files); } });
+    if (f.images.length >= MAX_IMG || locked) imgInput.disabled = true;
+    var imgHint = S.uploading ? '사진을 올리는 중입니다…'
+      : (f.images.length >= MAX_IMG ? '사진은 ' + MAX_IMG + '장까지 붙일 수 있습니다. 더 붙이려면 먼저 사진을 빼 주세요.'
+        : '최대 ' + MAX_IMG + '장, 현재 ' + f.images.length + '장. 사진은 자동으로 작게 줄여서 올라갑니다.');
+    var thumbs = h('div', { class: 'thumbs' }, f.images.map(function (im, i) {
+      return h('div', { class: 'thumb' }, [
+        h('img', { src: im.src, alt: '첨부 사진 ' + (i + 1) }),
+        h('button', { class: 'btn small danger', type: 'button', text: '사진 빼기', onclick: function () { f.images.splice(i, 1); S.imgNote = ''; render(); } })
+      ]);
+    }));
+
+    var err = h('span', { class: 'msg err', role: 'alert' });
+    var submit = h('button', {
+      class: 'btn', type: 'button', disabled: locked,
+      text: S.editingId ? '수정 내용 저장' : '글 올리기',
+      onclick: function () {
+        var t = f.title.trim();
+        if (!t) { err.textContent = '제목을 입력해 주세요.'; title.focus(); return; }
+        if (!f.date) { err.textContent = '날짜를 선택해 주세요.'; return; }
+        var rec = {
+          id: S.editingId || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+          created: Date.now(), date: f.date, cat: f.cat, title: t, body: f.body.trim(),
+          images: f.images.map(function (im) { return im.id; })
+        };
+        var wasEdit = !!S.editingId;
+        var posts;
+        if (wasEdit) {
+          posts = st.posts.map(function (x) { if (x.id !== S.editingId) return x; rec.created = x.created || rec.created; return rec; });
+        } else {
+          posts = st.posts.concat([rec]);
+        }
+        save(st.site, posts, wasEdit ? '수정한 내용을 저장했습니다. 거래처 화면에는 잠시(보통 1분 안팎) 뒤에 반영될 수 있습니다.' : '글을 올렸습니다. 거래처 화면에는 잠시(보통 1분 안팎) 뒤에 반영될 수 있습니다.', function () {
+          S.editingId = null; S.form = blankForm(); S.imgNote = '';
+        });
+      }
+    });
+    var formActions = [submit];
+    if (S.editingId) formActions.push(h('button', { class: 'btn ghost', type: 'button', text: '수정 취소', onclick: function () { S.editingId = null; S.form = blankForm(); S.imgNote = ''; render(); } }));
+    formActions.push(err);
+
+    root.appendChild(h('section', { class: 'panel' }, [
+      h('h2', { text: S.editingId ? '글 수정' : '새 글 쓰기' }),
+      h('div', { class: 'grid2' }, [field('f-date', '날짜', date), field('f-cat', '분류', sel)]),
+      field('f-title', '제목', title),
+      field('f-body', '내용', body),
+      field('f-img', '사진', imgInput, imgHint),
+      f.images.length ? thumbs : null,
+      S.imgNote ? h('p', { class: 'msg err', text: S.imgNote }) : null,
+      h('div', { class: 'actions' }, formActions)
+    ]));
+
+    // 올린 글 목록
+    var list = sorted(st.posts);
+    var items = list.length ? list.map(function (p) {
+      var row;
+      if (S.confirmDel === p.id) {
+        row = h('div', { class: 'row' }, [
+          h('span', { class: 'ask', text: '이 글을 삭제할까요?' }),
+          h('button', { class: 'btn small solid-danger', type: 'button', text: '삭제', disabled: locked, onclick: function () {
+            var posts = st.posts.filter(function (x) { return x.id !== p.id; });
+            save(st.site, posts, '삭제했습니다.', function () {
+              S.confirmDel = null;
+              if (S.editingId === p.id) { S.editingId = null; S.form = blankForm(); }
+            });
+          } }),
+          h('button', { class: 'btn small ghost', type: 'button', text: '취소', onclick: function () { S.confirmDel = null; render(); } })
+        ]);
+      } else {
+        row = h('div', { class: 'row' }, [
+          h('button', { class: 'btn small ghost', type: 'button', text: '수정', disabled: locked, onclick: function () {
+            S.editingId = p.id; S.confirmDel = null; S.imgNote = '';
+            S.form = { date: p.date, cat: p.cat, title: p.title, body: p.body || '', images: (p.images || []).map(function (id) { return { id: id, src: '/img/' + id }; }) };
+            render();
+            var el = document.getElementById('f-title'); if (el) { el.focus(); el.scrollIntoView({ block: 'center' }); }
+          } }),
+          h('button', { class: 'btn small danger', type: 'button', text: '삭제', disabled: locked, onclick: function () { S.confirmDel = p.id; render(); } })
+        ]);
+      }
+      return h('div', { class: 'item' }, [
+        h('div', { class: 'd', text: fmtDate(p.date) }),
+        h('div', {}, [
+          h('div', {}, [h('span', { class: 'tag ' + p.cat, text: CATS[p.cat] || '공지' }), h('span', { class: 't', text: p.title }), (p.images && p.images.length) ? h('span', { class: 'hint', text: '  사진 ' + p.images.length + '장' }) : null]),
+          row
+        ])
+      ]);
+    }) : [h('p', { class: 'empty', text: '아직 글이 없습니다. 위에서 첫 글을 써 보세요.' })];
+    root.appendChild(h('section', { class: 'panel' }, [h('h2', { text: '올린 글 (' + list.length + ')' })].concat(items)));
+
+    // 페이지 정보
+    var d = S.siteDraft;
+    var name = h('input', { id: 's-name', type: 'text', value: d.name, maxlength: '60' });
+    var tag = h('input', { id: 's-tag', type: 'text', value: d.tagline, maxlength: '140' });
+    var contact = h('input', { id: 's-contact', type: 'text', value: d.contact, maxlength: '140' });
+    name.addEventListener('input', function () { d.name = name.value; });
+    tag.addEventListener('input', function () { d.tagline = tag.value; });
+    contact.addEventListener('input', function () { d.contact = contact.value; });
+    var siteErr = h('span', { class: 'msg err', role: 'alert' });
+    root.appendChild(h('section', { class: 'panel' }, [
+      h('h2', { text: '페이지 정보' }),
+      field('s-name', '페이지 이름', name),
+      field('s-tag', '한 줄 소개', tag),
+      field('s-contact', '문의처', contact, '거래처 화면 맨 위에 그대로 보입니다.'),
+      h('div', { class: 'actions' }, [
+        h('button', { class: 'btn', type: 'button', text: '페이지 정보 저장', disabled: locked, onclick: function () {
+          if (!d.name.trim()) { siteErr.textContent = '페이지 이름을 입력해 주세요.'; name.focus(); return; }
+          save({ name: d.name.trim(), tagline: d.tagline.trim(), contact: d.contact.trim() }, st.posts, '페이지 정보를 저장했습니다.');
+        } }),
+        siteErr
+      ])
+    ]));
+  }
+
+  function render() {
+    root.textContent = '';
+    if (S.phase === 'loading') { root.appendChild(h('p', { class: 'msg', text: '불러오는 중입니다…' })); return; }
+    if (S.phase === 'login') { renderLogin(); return; }
+    renderEdit();
+  }
+
+  render();
+  init();
+})();
+</script>
+</body>
+</html>

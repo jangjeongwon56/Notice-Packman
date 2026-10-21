@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIB ERP 업데이트 소식</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: 좁은 단일 칼럼 타임라인. 왼쪽 열에 날짜, 오른쪽 열에 분류와 제목, 본문, 사진. 월별로 묶는다. */
+:root {
+  color-scheme: light;
+  --bg: #F2F4F5; --surface: #FFFFFF; --fg: #1A2329; --muted: #5B6870; --line: #D9DFE2;
+  --accent: #0E5A78;
+  --new: #0E5A78; --new-bg: #DCEBF2; --imp: #1F6B45; --imp-bg: #DDEFE4;
+  --fix: #8A5A00; --fix-bg: #F6E8C8; --note: #4A5560; --note-bg: #E6EAEC;
+  --font-body: "Noto Sans KR", "Malgun Gothic", "맑은 고딕", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #12181C; --surface: #1B2328; --fg: #E7ECEE; --muted: #9AA7AE; --line: #2E3A41;
+    --accent: #6FB8D6;
+    --new: #8CC7E0; --new-bg: #1C3340; --imp: #7FCB9F; --imp-bg: #1B3327;
+    --fix: #E5B867; --fix-bg: #3A2E14; --note: #B4BEC4; --note-bg: #273036;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.7;
+  padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 760px; margin: 0 auto; }
+.masthead { display: flex; flex-direction: column; gap: 10px; padding-bottom: 20px; border-bottom: 2px solid var(--fg); }
+.masthead h1 { margin: 0; font-size: 28px; line-height: 1.3; font-weight: 700; text-wrap: balance; }
+.masthead .tagline { margin: 0; color: var(--muted); max-width: 60ch; }
+.facts { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; font-size: 13px; color: var(--muted); }
+
+.filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 22px 0 6px; }
+.chip { font: inherit; font-size: 13px; line-height: 1; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.chip .n { font-family: var(--font-mono); font-size: 12px; margin-left: 6px; opacity: .7; }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.month { margin: 34px 0 0; font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--muted); }
+.post { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 4px 24px; padding: 20px 0; border-bottom: 1px solid var(--line); }
+.when { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+.main { min-width: 0; }
+.tag { display: inline-block; font-size: 12px; font-weight: 500; line-height: 1.6; padding: 0 9px; border-radius: 999px; margin-bottom: 6px; }
+.tag.new { background: var(--new-bg); color: var(--new); }
+.tag.imp { background: var(--imp-bg); color: var(--imp); }
+.tag.fix { background: var(--fix-bg); color: var(--fix); }
+.tag.note { background: var(--note-bg); color: var(--note); }
+.main h3 { margin: 0 0 6px; font-size: 18px; line-height: 1.45; font-weight: 700; text-wrap: balance; }
+.body { max-width: 62ch; overflow-wrap: anywhere; }
+.body p { margin: 0 0 8px; white-space: pre-line; }
+.body ul { margin: 0 0 8px; padding-left: 1.2em; }
+.body li { margin: 2px 0; }
+.empty, .status { margin: 40px 0; color: var(--muted); }
+
+.photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-top: 12px; max-width: 62ch; }
+.photos button { padding: 0; margin: 0; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); cursor: zoom-in; overflow: hidden; display: block; line-height: 0; }
+.photos img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; display: block; background: var(--bg); }
+.photos button:focus-visible, .lightbox .close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .88); display: flex; align-items: center; justify-content: center; padding: 56px 16px 16px; cursor: zoom-out; }
+.lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; background: #fff; }
+.lightbox .close { position: absolute; top: 12px; right: 12px; font: inherit; font-size: 14px; padding: 8px 14px; border-radius: 6px; border: 1px solid #fff; background: transparent; color: #fff; cursor: pointer; }
+
+@media (max-width: 560px) {
+  body { padding-block: 28px 48px; }
+  .masthead h1 { font-size: 24px; }
+  .post { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+}
+</style>
+</head>
+<body>
+<div id="root"><div class="wrap"><p class="status">소식을 불러오는 중입니다…</p></div></div>
+<noscript><p style="padding:16px">이 페이지를 보려면 브라우저의 자바스크립트를 켜 주세요.</p></noscript>
+<script>
+(function () {
+  'use strict';
+  var CATS = { new: '신규 기능', imp: '개선', fix: '오류 수정', note: '공지' };
+  var ORDER = ['new', 'imp', 'fix', 'note'];
+  var state = null;
+  var filter = 'all';
+  var root = document.getElementById('root');
+
+  function h(tag, attrs, kids) {
+    var el = document.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        var v = attrs[k];
+        if (v === null || v === undefined || v === false) return;
+        if (k === 'text') el.textContent = v;
+        else if (k === 'class') el.className = v;
+        else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+        else el.setAttribute(k, v === true ? '' : v);
+      });
+    }
+    (kids || []).forEach(function (c) {
+      if (c === null || c === undefined || c === false) return;
+      el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    });
+    return el;
+  }
+  function sorted(posts) {
+    return posts.slice().sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return (b.created || 0) - (a.created || 0);
+    });
+  }
+  function fmtDate(d) { return String(d || '').replace(/-/g, '.'); }
+  function monthLabel(d) {
+    var m = /^(\d{4})-(\d{2})/.exec(d || '');
+    return m ? m[1] + '년 ' + parseInt(m[2], 10) + '월' : '날짜 미정';
+  }
+  function bodyEl(text) {
+    var wrap = h('div', { class: 'body' });
+    var ul = null, para = [];
+    function flush() { if (para.length) { wrap.appendChild(h('p', { text: para.join('\n') })); para = []; } }
+    String(text || '').split(/\r?\n/).forEach(function (line) {
+      var m = /^\s*[-•*]\s+(.*)$/.exec(line);
+      if (m) {
+        flush();
+        if (!ul) { ul = h('ul'); wrap.appendChild(ul); }
+        ul.appendChild(h('li', { text: m[1] }));
+      } else if (!line.trim()) { flush(); ul = null; }
+      else { ul = null; para.push(line); }
+    });
+    flush();
+    return wrap;
+  }
+
+  function openBox(src, opener) {
+    var box = h('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true', 'aria-label': '사진 크게 보기' });
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    function close() {
+      if (box.parentNode) box.parentNode.removeChild(box);
+      document.removeEventListener('keydown', onKey);
+      if (opener && opener.focus) opener.focus();
+    }
+    var closeBtn = h('button', { class: 'close', type: 'button', text: '닫기', onclick: close });
+    box.appendChild(h('img', { src: src, alt: '첨부 사진' }));
+    box.appendChild(closeBtn);
+    box.addEventListener('click', function (e) { if (e.target !== closeBtn) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(box);
+    closeBtn.focus();
+  }
+  function photosEl(ids) {
+    var list = (Array.isArray(ids) ? ids : []).filter(function (s) { return /^[a-f0-9]{16}$/.test(s); });
+    if (!list.length) return null;
+    return h('div', { class: 'photos' }, list.map(function (id, i) {
+      var src = '/img/' + id;
+      var btn = h('button', { type: 'button', 'aria-label': '사진 ' + (i + 1) + ' 크게 보기' });
+      btn.appendChild(h('img', { src: src, alt: '첨부 사진 ' + (i + 1), loading: 'lazy' }));
+      btn.addEventListener('click', function () { openBox(src, btn); });
+      return btn;
+    }));
+  }
+
+  function render() {
+    root.textContent = '';
+    var all = sorted(state.posts);
+    var site = state.site || {};
+    document.title = site.name || document.title;
+    var facts = [];
+    if (all.length) facts.push(h('span', { text: '최근 업데이트 ' + fmtDate(all[0].date) }));
+    if (site.contact) facts.push(h('span', { text: site.contact }));
+
+    var wrap = h('div', { class: 'wrap' });
+    wrap.appendChild(h('header', { class: 'masthead' }, [
+      h('h1', { text: site.name || '업데이트 소식' }),
+      site.tagline ? h('p', { class: 'tagline', text: site.tagline }) : null,
+      facts.length ? h('div', { class: 'facts' }, facts) : null
+    ]));
+
+    var counts = { all: all.length };
+    ORDER.forEach(function (k) { counts[k] = all.filter(function (p) { return p.cat === k; }).length; });
+    if (all.length) {
+      var chips = ['all'].concat(ORDER).filter(function (k) { return k === 'all' || counts[k] > 0; });
+      wrap.appendChild(h('div', { class: 'filters', role: 'group', 'aria-label': '분류별 보기' }, chips.map(function (k) {
+        return h('button', {
+          class: 'chip', type: 'button', 'aria-pressed': filter === k ? 'true' : 'false',
+          onclick: function () { filter = k; render(); }
+        }, [k === 'all' ? '전체' : CATS[k], h('span', { class: 'n', text: String(counts[k]) })]);
+      })));
+    }
+
+    var shown = all.filter(function (p) { return filter === 'all' || p.cat === filter; });
+    if (!shown.length) {
+      wrap.appendChild(h('p', { class: 'empty', text: all.length ? '이 분류의 소식이 아직 없습니다.' : '아직 올라온 업데이트가 없습니다.' }));
+    } else {
+      var lastMonth = '';
+      var list = h('div', {});
+      shown.forEach(function (p) {
+        var m = monthLabel(p.date);
+        if (m !== lastMonth) { list.appendChild(h('h2', { class: 'month', text: m })); lastMonth = m; }
+        list.appendChild(h('article', { class: 'post' }, [
+          h('div', { class: 'when', text: fmtDate(p.date) }),
+          h('div', { class: 'main' }, [
+            h('span', { class: 'tag ' + p.cat, text: CATS[p.cat] || '공지' }),
+            h('h3', { text: p.title }),
+            bodyEl(p.body),
+            photosEl(p.images)
+          ])
+        ]));
+      });
+      wrap.appendChild(list);
+    }
+    root.appendChild(wrap);
+  }
+
+  function showError() {
+    root.textContent = '';
+    root.appendChild(h('div', { class: 'wrap' }, [
+      h('p', { class: 'status', text: '소식을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.' }),
+      h('button', { class: 'chip', type: 'button', text: '다시 불러오기', onclick: load })
+    ]));
+  }
+
+  function load() {
+    fetch('/api/posts').then(function (r) {
+      if (!r.ok) throw new Error('load');
+      return r.json();
+    }).then(function (s) {
+      if (!s || !Array.isArray(s.posts)) throw new Error('data');
+      state = s;
+      render();
+    }).catch(showError);
+  }
+  load();
+})();
+</script>
+</body>
+</html>
