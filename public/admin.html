@@ -68,6 +68,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .thumbs { display: flex; flex-wrap: wrap; gap: 10px; }
 .thumb { display: grid; gap: 6px; justify-items: start; }
 .thumb img { width: 140px; height: 105px; object-fit: contain; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); display: block; }
+.gitem { padding: 12px 0; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.gitem .gline { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+.gitem .d { font-family: var(--font-mono); font-size: 13px; color: var(--muted); min-width: 34px; }
+.gitem .t { font-weight: 700; overflow-wrap: anywhere; }
+.gitem .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.gitem .ask { font-size: 13px; color: var(--danger); }
+.gitem.editing { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px; margin-top: 6px; }
 .login { max-width: 420px; margin: 60px auto 0; }
 @media (max-width: 560px) {
   .grid2 { grid-template-columns: minmax(0, 1fr); }
@@ -92,8 +99,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     state: null, siteDraft: null,
     editingId: null, confirmDel: null,
     form: blankForm(),
-    msg: '', kind: '', busy: false, uploading: false, imgNote: '', conflict: false
+    msg: '', kind: '', busy: false, uploading: false, imgNote: '', conflict: false,
+    guides: null, gMsg: '', gKind: '', gBusy: false, gEdit: null, gDraft: null, gDel: null,
+    gNew: { no: '', group: '', title: '', file: null }, gNewErr: ''
   };
+  var MAX_PDF = 15 * 1024 * 1024;
 
   function today() {
     var t = new Date();
@@ -137,7 +147,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
     opts = opts || {};
     var headers = { 'X-Requested-With': 'sib' };
     var body;
-    if (opts.raw) { headers['Content-Type'] = 'image/jpeg'; body = opts.raw; }
+    if (opts.raw) { headers['Content-Type'] = opts.type || 'image/jpeg'; body = opts.raw; }
     else if (opts.json !== undefined) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(opts.json); }
     return fetch(path, { method: method, headers: headers, body: body, credentials: 'same-origin', cache: 'no-store' })
       .then(function (r) {
@@ -157,7 +167,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       if (!r.ok) { S.msg = (r.data && r.data.error) || '글을 불러오지 못했습니다.'; S.kind = 'err'; S.phase = 'login'; render(); return; }
       S.state = r.data;
       S.siteDraft = { name: r.data.site.name || '', tagline: r.data.site.tagline || '', contact: r.data.site.contact || '' };
-      S.phase = 'edit'; S.msg = ''; render();
+      return loadGuides().then(function () { S.phase = 'edit'; S.msg = ''; render(); });
+    });
+  }
+  function loadGuides() {
+    return api('GET', '/api/guides').then(function (r) {
+      if (r.ok && Array.isArray(r.data.items)) S.guides = r.data;
+      else { S.guides = { rev: 0, items: [], failed: true }; S.gMsg = (r.data && r.data.error) || '설명서 목록을 불러오지 못했습니다.'; S.gKind = 'err'; }
     });
   }
   function init() {
@@ -177,7 +193,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   }
   function doLogout() {
     api('POST', '/api/logout').then(function () {
-      S.state = null; S.msg = ''; toLogin('');
+      S.state = null; S.guides = null; S.msg = ''; toLogin('');
     }).catch(netErr);
   }
 
@@ -199,6 +215,134 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       }
       render();
     }).catch(netErr);
+  }
+
+  /* ---------- 기초설명서 ---------- */
+  function newGuideId() { return 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+  function uploadPdf(file) {
+    if (!file) return Promise.reject({ text: 'PDF 파일을 선택해 주세요.' });
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') return Promise.reject({ text: 'PDF 파일만 올릴 수 있습니다. PowerPoint에서 PDF로 저장한 파일을 선택해 주세요.' });
+    if (file.size > MAX_PDF) return Promise.reject({ text: 'PDF 용량이 너무 큽니다. 15MB 이하로 줄여 주세요.' });
+    return api('POST', '/api/guide-file', { raw: file, type: 'application/pdf' }).then(function (r) {
+      if (r.status === 401) throw { auth: true };
+      if (!r.ok || !r.data.src) throw { text: (r.data && r.data.error) || 'PDF를 올리지 못했습니다.' };
+      return r.data.src;
+    });
+  }
+  function saveGuides(items, okMsg, onOk) {
+    S.gBusy = true; S.gMsg = '저장하는 중입니다…'; S.gKind = ''; render();
+    return api('PUT', '/api/guides', { json: { rev: S.guides.rev, items: items } }).then(function (r) {
+      S.gBusy = false;
+      if (r.ok) { S.guides = r.data; if (onOk) onOk(); S.gMsg = okMsg; S.gKind = 'ok'; }
+      else if (r.status === 401) { toLogin('로그인이 만료되었습니다. 다시 로그인해 주세요.'); return; }
+      else if (r.status === 409) { S.gMsg = '다른 곳에서 먼저 저장된 내용이 있어 목록을 새로 불러왔습니다. 다시 시도해 주세요.'; S.gKind = 'err'; return loadGuides().then(render); }
+      else { S.gMsg = (r.data && r.data.error) || '저장하지 못했습니다.'; S.gKind = 'err'; }
+      render();
+    }).catch(netErr);
+  }
+  function gFail(e, target) {
+    S.gBusy = false;
+    if (e && e.auth) { toLogin('로그인이 만료되었습니다. 다시 로그인해 주세요.'); return; }
+    if (e && e.text) { if (target === 'new') S.gNewErr = e.text; else { S.gMsg = e.text; S.gKind = 'err'; } render(); return; }
+    netErr();
+  }
+  function renderGuides() {
+    var g = S.guides, items = g.items, locked = S.gBusy || S.busy;
+    var groups = [];
+    items.forEach(function (x) { if (x.group && groups.indexOf(x.group) < 0) groups.push(x.group); });
+    var dl = h('datalist', { id: 'g-groups' }, groups.map(function (n) { return h('option', { value: n }); }));
+
+    var rows = items.length ? items.map(function (x, i) {
+      if (S.gEdit === x.id) {
+        var d = S.gDraft;
+        var no = h('input', { id: 'ge-no', type: 'text', value: d.no, maxlength: '10' });
+        var gr = h('input', { id: 'ge-group', type: 'text', value: d.group, maxlength: '30', list: 'g-groups' });
+        var ti = h('input', { id: 'ge-title', type: 'text', value: d.title, maxlength: '60' });
+        var fi = h('input', { id: 'ge-file', type: 'file', accept: 'application/pdf,.pdf' });
+        no.addEventListener('input', function () { d.no = no.value; });
+        gr.addEventListener('input', function () { d.group = gr.value; });
+        ti.addEventListener('input', function () { d.title = ti.value; });
+        var er = h('span', { class: 'msg err', role: 'alert' });
+        return h('div', { class: 'gitem editing' }, [
+          h('div', { class: 'grid2' }, [field('ge-no', '번호', no), field('ge-group', '묶음', gr)]),
+          field('ge-title', '제목', ti),
+          field('ge-file', 'PDF 바꾸기 (선택)', fi, '내용을 고쳤다면 PowerPoint에서 PDF로 다시 저장해 여기에 올려 주세요. 선택하지 않으면 기존 파일을 그대로 씁니다.'),
+          h('div', { class: 'actions' }, [
+            h('button', { class: 'btn small', type: 'button', disabled: locked, text: '저장', onclick: function () {
+              if (!d.title.trim()) { er.textContent = '제목을 입력해 주세요.'; ti.focus(); return; }
+              var file = fi.files && fi.files[0];
+              S.gBusy = true; S.gMsg = file ? 'PDF를 올리는 중입니다…' : '저장하는 중입니다…'; S.gKind = ''; render();
+              (file ? uploadPdf(file) : Promise.resolve(x.src)).then(function (src) {
+                var next = items.map(function (y) { return y.id === x.id ? { id: y.id, no: d.no.trim(), group: d.group.trim(), title: d.title.trim(), src: src } : y; });
+                return saveGuides(next, '설명서를 수정했습니다.', function () { S.gEdit = null; S.gDraft = null; });
+              }).catch(function (e) { gFail(e); });
+            } }),
+            h('button', { class: 'btn small ghost', type: 'button', text: '취소', onclick: function () { S.gEdit = null; S.gDraft = null; render(); } }),
+            er
+          ])
+        ]);
+      }
+      var tools;
+      if (S.gDel === x.id) {
+        tools = [
+          h('span', { class: 'ask', text: '이 설명서를 목록에서 뺄까요?' }),
+          h('button', { class: 'btn small solid-danger', type: 'button', text: '삭제', disabled: locked, onclick: function () {
+            saveGuides(items.filter(function (y) { return y.id !== x.id; }), '삭제했습니다.', function () { S.gDel = null; });
+          } }),
+          h('button', { class: 'btn small ghost', type: 'button', text: '취소', onclick: function () { S.gDel = null; render(); } })
+        ];
+      } else {
+        tools = [
+          h('button', { class: 'btn small ghost', type: 'button', text: '↑ 위로', 'aria-label': x.title + ' 위로 옮기기', disabled: locked || i === 0, onclick: function () { move(i, -1); } }),
+          h('button', { class: 'btn small ghost', type: 'button', text: '↓ 아래로', 'aria-label': x.title + ' 아래로 옮기기', disabled: locked || i === items.length - 1, onclick: function () { move(i, 1); } }),
+          h('button', { class: 'btn small ghost', type: 'button', text: '수정', disabled: locked, onclick: function () { S.gEdit = x.id; S.gDel = null; S.gDraft = { no: x.no || '', group: x.group || '', title: x.title }; render(); } }),
+          h('a', { class: 'btn small ghost', href: x.src, target: '_blank', rel: 'noopener', text: 'PDF 보기' }),
+          h('button', { class: 'btn small danger', type: 'button', text: '삭제', disabled: locked, onclick: function () { S.gDel = x.id; render(); } })
+        ];
+      }
+      return h('div', { class: 'gitem' }, [
+        h('div', { class: 'gline' }, [h('span', { class: 'd', text: x.no || '–' }), h('span', { class: 'hint', text: x.group || '' }), h('span', { class: 't', text: x.title })]),
+        h('div', { class: 'row' }, tools)
+      ]);
+    }) : [h('p', { class: 'empty', text: '등록된 설명서가 없습니다. 아래에서 추가해 주세요.' })];
+
+    function move(i, dir) {
+      var next = items.slice(); var t = next[i]; next[i] = next[i + dir]; next[i + dir] = t;
+      saveGuides(next, '순서를 바꿨습니다.');
+    }
+
+    var n = S.gNew;
+    var nno = h('input', { id: 'gn-no', type: 'text', value: n.no, maxlength: '10', placeholder: '예: 4-1' });
+    var ngr = h('input', { id: 'gn-group', type: 'text', value: n.group, maxlength: '30', list: 'g-groups', placeholder: '예: 생산관리' });
+    var nti = h('input', { id: 'gn-title', type: 'text', value: n.title, maxlength: '60', placeholder: '예: 작업지시서 출력' });
+    var nfi = h('input', { id: 'gn-file', type: 'file', accept: 'application/pdf,.pdf' });
+    nno.addEventListener('input', function () { n.no = nno.value; });
+    ngr.addEventListener('input', function () { n.group = ngr.value; });
+    nti.addEventListener('input', function () { n.title = nti.value; });
+    var addBtn = h('button', { class: 'btn', type: 'button', disabled: locked || items.length >= 100, text: '설명서 추가', onclick: function () {
+      S.gNewErr = '';
+      var file = nfi.files && nfi.files[0];
+      if (!n.title.trim()) { S.gNewErr = '제목을 입력해 주세요.'; render(); return; }
+      if (!file) { S.gNewErr = 'PDF 파일을 선택해 주세요.'; render(); return; }
+      S.gBusy = true; S.gMsg = 'PDF를 올리는 중입니다…'; S.gKind = ''; render();
+      uploadPdf(file).then(function (src) {
+        var rec = { id: newGuideId(), no: n.no.trim(), group: n.group.trim(), title: n.title.trim(), src: src };
+        return saveGuides(items.concat([rec]), '설명서를 추가했습니다.', function () { S.gNew = { no: '', group: n.group, title: '', file: null }; });
+      }).catch(function (e) { gFail(e, 'new'); });
+    } });
+
+    root.appendChild(h('section', { class: 'panel' }, [
+      h('h2', { text: '기초설명서 관리 (' + items.length + ')' }),
+      h('p', { class: 'hint', text: '거래처 화면의 "기초설명서" 버튼에 보이는 문서입니다. 바꾸면 바로 저장됩니다. 문서는 PDF로 올립니다. PowerPoint에서 [파일 → 내보내기 → PDF/XPS 문서 만들기] 또는 [다른 이름으로 저장 → PDF]를 선택해 만든 파일을 사용하세요.' }),
+      h('p', { class: 'msg ' + S.gKind, role: 'status', 'aria-live': 'polite', text: S.gMsg }),
+      dl
+    ].concat(rows).concat([
+      h('h2', { text: '설명서 추가' }),
+      h('div', { class: 'grid2' }, [field('gn-no', '번호', nno), field('gn-group', '묶음', ngr)]),
+      field('gn-title', '제목', nti),
+      field('gn-file', 'PDF 파일 (15MB 이하)', nfi),
+      h('div', { class: 'actions' }, [addBtn, h('span', { class: 'msg err', role: 'alert', text: S.gNewErr })])
+    ])));
   }
 
   /* ---------- 사진 ---------- */
@@ -393,6 +537,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       ]);
     }) : [h('p', { class: 'empty', text: '아직 글이 없습니다. 위에서 첫 글을 써 보세요.' })];
     root.appendChild(h('section', { class: 'panel' }, [h('h2', { text: '올린 글 (' + list.length + ')' })].concat(items)));
+
+    if (S.guides) renderGuides();
 
     // 페이지 정보
     var d = S.siteDraft;

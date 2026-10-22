@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>기초설명서</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: 위쪽에 제목, 아래는 왼쪽 문서 목록(묶음별)과 오른쪽 슬라이드 보기. 휴대폰에서는 목록이 선택 상자로 바뀐다. */
+:root {
+  color-scheme: light;
+  --bg: #F2F4F5; --surface: #FFFFFF; --fg: #1A2329; --muted: #5B6870; --line: #D9DFE2;
+  --accent: #0E5A78; --accent-ink: #FFFFFF; --danger: #A3262A;
+  --font-body: "Noto Sans KR", "Malgun Gothic", "맑은 고딕", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #12181C; --surface: #1B2328; --fg: #E7ECEE; --muted: #9AA7AE; --line: #2E3A41;
+    --accent: #6FB8D6; --accent-ink: #0B1A21; --danger: #F08A8D;
+  }
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.7;
+  padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1100px; margin: 0 auto; }
+.masthead { display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px; border-bottom: 2px solid var(--fg); }
+.back { align-self: flex-start; font-size: 14px; color: var(--accent); text-decoration: none; padding: 4px 0; }
+.back:hover { text-decoration: underline; }
+.masthead h1 { margin: 0; font-size: 28px; line-height: 1.3; font-weight: 700; }
+.masthead .tagline { margin: 0; color: var(--muted); }
+a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 28px; margin-top: 24px; align-items: start; }
+.nav { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow: auto; display: grid; gap: 18px; padding-right: 4px; }
+.group h2 { margin: 0 0 6px; font-size: 13px; font-weight: 700; letter-spacing: .06em; color: var(--muted); }
+.group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.doc { width: 100%; display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 8px; align-items: baseline; text-align: left; font: inherit; font-size: 14px; line-height: 1.5; padding: 8px 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--fg); cursor: pointer; }
+.doc:hover { background: var(--surface); border-color: var(--line); }
+.doc[aria-current="true"] { background: var(--fg); color: var(--bg); }
+.doc .no { font-family: var(--font-mono); font-size: 12px; opacity: .75; }
+.doc .t { overflow-wrap: anywhere; }
+.picker { display: none; }
+.picker select { width: 100%; font: inherit; font-size: 15px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
+
+.viewer { min-width: 0; }
+.vhead { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.vhead h2 { margin: 0; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
+.vhead .sub { font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+.tools { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: inherit; font-size: 13px; font-weight: 500; line-height: 1; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; text-decoration: none; display: inline-block; }
+.btn:disabled { opacity: .4; cursor: default; }
+.pages { display: grid; gap: 18px; margin-top: 18px; }
+.page { margin: 0; }
+.page .pagebtn { display: block; width: 100%; padding: 0; margin: 0; border: 1px solid var(--line); background: #fff; cursor: zoom-in; line-height: 0; }
+.page img { width: 100%; height: auto; display: block; }
+.page figcaption { margin-top: 4px; font-size: 12px; font-family: var(--font-mono); color: var(--muted); text-align: right; }
+.status { margin: 28px 0; color: var(--muted); }
+.status.err { color: var(--danger); }
+
+.lightbox { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .9); display: flex; flex-direction: column; }
+.lightbox .bar { display: flex; gap: 8px; justify-content: flex-end; align-items: center; padding: 10px max(12px, env(safe-area-inset-right, 0px)) 10px max(12px, env(safe-area-inset-left, 0px)); color: #fff; font-size: 13px; }
+.lightbox .bar .hint { margin-right: auto; opacity: .8; }
+.lightbox .bar button { font: inherit; font-size: 13px; padding: 8px 12px; border-radius: 6px; border: 1px solid #fff; background: transparent; color: #fff; cursor: pointer; }
+.lightbox .scroll { flex: 1; overflow: auto; display: flex; padding: 0 12px 12px; }
+.lightbox img { margin: auto; background: #fff; max-width: 100%; max-height: 100%; cursor: zoom-in; }
+.lightbox.full img { max-width: none; max-height: none; cursor: zoom-out; }
+
+@media (max-width: 760px) {
+  body { padding-block: 24px 48px; }
+  .masthead h1 { font-size: 24px; }
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .nav { display: none; }
+  .picker { display: block; }
+  .vhead h2 { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <a class="back" href="/">← 업데이트 소식으로</a>
+    <h1>기초설명서</h1>
+    <p class="tagline">ERP 사용 방법을 화면과 함께 단계별로 안내합니다. 슬라이드를 누르면 크게 볼 수 있습니다.</p>
+  </header>
+  <div id="root" class="layout"><p class="status">설명서를 불러오는 중입니다…</p></div>
+</div>
+<noscript><p style="padding:16px">이 페이지를 보려면 브라우저의 자바스크립트를 켜 주세요.</p></noscript>
+<script>
+(function () {
+  'use strict';
+  var TARGET_W = 1600;   // 슬라이드를 이 가로 픽셀로 그려서 보여 줍니다
+  var root = document.getElementById('root');
+  var guides = [];
+  var current = null;
+  var token = 0;
+  var lib = null;
+  var urls = [];
+
+  function h(tag, attrs, kids) {
+    var el = document.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        var v = attrs[k];
+        if (v === null || v === undefined || v === false) return;
+        if (k === 'text') el.textContent = v;
+        else if (k === 'class') el.className = v;
+        else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+        else el.setAttribute(k, v === true ? '' : v);
+      });
+    }
+    (kids || []).forEach(function (c) {
+      if (c === null || c === undefined || c === false) return;
+      el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    });
+    return el;
+  }
+  function find(id) { for (var i = 0; i < guides.length; i++) if (guides[i].id === id) return guides[i]; return null; }
+  function index(id) { for (var i = 0; i < guides.length; i++) if (guides[i].id === id) return i; return -1; }
+  function groupsOf(list) {
+    var order = [], map = {};
+    list.forEach(function (g) {
+      var k = g.group || '기타';
+      if (!map[k]) { map[k] = []; order.push(k); }
+      map[k].push(g);
+    });
+    return order.map(function (k) { return { name: k, items: map[k] }; });
+  }
+  function label(g) { return (g.no ? g.no + '  ' : '') + g.title; }
+
+  /* ---------- 사진처럼 크게 보기 ---------- */
+  function openBox(src, caption, opener) {
+    var box = h('div', { class: 'lightbox', role: 'dialog', 'aria-modal': 'true', 'aria-label': '슬라이드 크게 보기' });
+    var img = h('img', { src: src, alt: caption });
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    function close() {
+      if (box.parentNode) box.parentNode.removeChild(box);
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+      if (opener && opener.focus) opener.focus();
+    }
+    var closeBtn = h('button', { type: 'button', text: '닫기', onclick: close });
+    var zoomBtn = h('button', { type: 'button', text: '원본 크기로 보기' });
+    function toggle() {
+      var full = box.classList.toggle('full');
+      zoomBtn.textContent = full ? '화면에 맞추기' : '원본 크기로 보기';
+    }
+    zoomBtn.addEventListener('click', toggle);
+    img.addEventListener('click', toggle);
+    box.appendChild(h('div', { class: 'bar' }, [h('span', { class: 'hint', text: caption }), zoomBtn, closeBtn]));
+    box.appendChild(h('div', { class: 'scroll' }, [img]));
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    document.body.appendChild(box);
+    closeBtn.focus();
+  }
+
+  /* ---------- PDF 그리기 ---------- */
+  function ensureLib() {
+    if (lib) return Promise.resolve(lib);
+    return import('/guide/vendor/pdf.min.js').then(function (m) {
+      m.GlobalWorkerOptions.workerSrc = '/guide/vendor/pdf.worker.min.js';
+      lib = m;
+      return m;
+    });
+  }
+  function toUrl(canvas) {
+    return new Promise(function (resolve) {
+      if (canvas.toBlob) {
+        canvas.toBlob(function (b) {
+          if (b) { var u = URL.createObjectURL(b); urls.push(u); resolve(u); }
+          else resolve(canvas.toDataURL('image/jpeg', 0.9));
+        }, 'image/jpeg', 0.9);
+      } else resolve(canvas.toDataURL('image/jpeg', 0.9));
+    });
+  }
+  function clearUrls() { urls.forEach(function (u) { URL.revokeObjectURL(u); }); urls = []; }
+
+  var pagesEl, statusEl, titleEl, subEl, openEl, prevBtn, nextBtn, selectEl, navEl;
+
+  function show(id) {
+    var g = find(id) || guides[0];
+    if (!g) return;
+    current = g;
+    var my = ++token;
+    clearUrls();
+    try { history.replaceState(null, '', '#' + g.id); } catch (e) { /* 무시 */ }
+    document.title = g.title + ' · 기초설명서';
+    titleEl.textContent = g.title;
+    subEl.textContent = g.no || '';
+    openEl.href = g.src;
+    var i = index(g.id);
+    prevBtn.disabled = i <= 0;
+    nextBtn.disabled = i >= guides.length - 1;
+    selectEl.value = g.id;
+    Array.prototype.forEach.call(navEl.querySelectorAll('.doc'), function (b) {
+      b.setAttribute('aria-current', b.getAttribute('data-id') === g.id ? 'true' : 'false');
+    });
+    pagesEl.textContent = '';
+    statusEl.className = 'status';
+    statusEl.textContent = '설명서를 불러오는 중입니다…';
+
+    ensureLib().then(function (m) {
+      return m.getDocument({ url: g.src }).promise;
+    }).then(function (pdf) {
+      var n = pdf.numPages;
+      var chain = Promise.resolve();
+      var done = 0;
+      for (var p = 1; p <= n; p++) {
+        (function (num) {
+          chain = chain.then(function () {
+            if (my !== token) return null;
+            return pdf.getPage(num).then(function (page) {
+              var base = page.getViewport({ scale: 1 });
+              var scale = Math.min(3, TARGET_W / base.width);
+              var vp = page.getViewport({ scale: scale });
+              var c = document.createElement('canvas');
+              c.width = Math.floor(vp.width);
+              c.height = Math.floor(vp.height);
+              var ctx = c.getContext('2d');
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, c.width, c.height);
+              return page.render({ canvasContext: ctx, viewport: vp }).promise.then(function () {
+                page.cleanup();
+                return toUrl(c);
+              }).then(function (u) {
+                if (my !== token) return;
+                var cap = g.title + ' ' + num + '/' + n + '쪽';
+                var btn = h('button', { class: 'pagebtn', type: 'button', 'aria-label': cap + ' 크게 보기' }, [h('img', { src: u, alt: cap })]);
+                btn.addEventListener('click', function () { openBox(u, cap, btn); });
+                pagesEl.appendChild(h('figure', { class: 'page' }, [btn, h('figcaption', { text: num + ' / ' + n })]));
+                done++;
+                statusEl.textContent = done < n ? (done + ' / ' + n + '쪽을 그리는 중입니다…') : '';
+              });
+            });
+          });
+        })(p);
+      }
+      return chain;
+    }).catch(function () {
+      if (my !== token) return;
+      statusEl.className = 'status err';
+      statusEl.textContent = '설명서를 불러오지 못했습니다. 아래 "PDF로 열기"를 눌러 보세요.';
+    });
+  }
+
+  /* ---------- 화면 ---------- */
+  function build() {
+    root.textContent = '';
+    if (!guides.length) {
+      root.appendChild(h('p', { class: 'status', text: '아직 등록된 설명서가 없습니다.' }));
+      return;
+    }
+    var groups = groupsOf(guides);
+
+    navEl = h('nav', { class: 'nav', 'aria-label': '설명서 목록' }, groups.map(function (gr) {
+      return h('div', { class: 'group' }, [
+        h('h2', { text: gr.name }),
+        h('ul', {}, gr.items.map(function (g) {
+          var b = h('button', { class: 'doc', type: 'button', 'data-id': g.id, 'aria-current': 'false' }, [
+            h('span', { class: 'no', text: g.no || '' }),
+            h('span', { class: 't', text: g.title })
+          ]);
+          b.addEventListener('click', function () { show(g.id); window.scrollTo(0, 0); });
+          return h('li', {}, [b]);
+        }))
+      ]);
+    }));
+
+    selectEl = h('select', { id: 'docSelect', 'aria-label': '설명서 선택' }, groups.map(function (gr) {
+      var og = h('optgroup', { label: gr.name }, gr.items.map(function (g) { return h('option', { value: g.id, text: label(g) }); }));
+      return og;
+    }));
+    selectEl.addEventListener('change', function () { show(selectEl.value); });
+
+    titleEl = h('h2');
+    subEl = h('span', { class: 'sub' });
+    openEl = h('a', { class: 'btn', href: '#', target: '_blank', rel: 'noopener', text: 'PDF로 열기' });
+    prevBtn = h('button', { class: 'btn', type: 'button', text: '← 이전 문서', onclick: function () { var i = index(current.id); if (i > 0) { show(guides[i - 1].id); window.scrollTo(0, 0); } } });
+    nextBtn = h('button', { class: 'btn', type: 'button', text: '다음 문서 →', onclick: function () { var i = index(current.id); if (i < guides.length - 1) { show(guides[i + 1].id); window.scrollTo(0, 0); } } });
+    pagesEl = h('div', { class: 'pages' });
+    statusEl = h('p', { class: 'status', role: 'status', 'aria-live': 'polite' });
+
+    var viewer = h('section', { class: 'viewer', 'aria-label': '설명서 보기' }, [
+      h('div', { class: 'vhead' }, [h('div', {}, [subEl, titleEl]), h('div', { class: 'tools' }, [prevBtn, nextBtn, openEl])]),
+      statusEl,
+      pagesEl,
+      h('div', { class: 'tools' }, [
+        h('button', { class: 'btn', type: 'button', text: '← 이전 문서', onclick: function () { prevBtn.click(); } }),
+        h('button', { class: 'btn', type: 'button', text: '다음 문서 →', onclick: function () { nextBtn.click(); } })
+      ])
+    ]);
+
+    root.appendChild(navEl);
+    root.appendChild(h('div', { class: 'picker' }, [selectEl]));
+    root.appendChild(viewer);
+  }
+
+  function load() {
+    root.textContent = '';
+    root.appendChild(h('p', { class: 'status', text: '설명서를 불러오는 중입니다…' }));
+    fetch('/api/guides').then(function (r) {
+      if (!r.ok) throw new Error('load');
+      return r.json();
+    }).then(function (g) {
+      if (!g || !Array.isArray(g.items)) throw new Error('data');
+      guides = g.items;
+      build();
+      if (guides.length) show(decodeURIComponent((location.hash || '').slice(1)));
+    }).catch(function () {
+      root.textContent = '';
+      root.appendChild(h('p', { class: 'status err', text: '설명서 목록을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.' }));
+      root.appendChild(h('button', { class: 'btn', type: 'button', text: '다시 불러오기', onclick: load }));
+    });
+  }
+  window.addEventListener('hashchange', function () {
+    var id = decodeURIComponent((location.hash || '').slice(1));
+    if (guides.length && find(id) && (!current || current.id !== id)) show(id);
+  });
+  load();
+})();
+</script>
+</body>
+</html>
