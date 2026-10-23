@@ -49,7 +49,10 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
 .doc[aria-current="true"] { background: var(--fg); color: var(--bg); }
 .doc .no { font-family: var(--font-mono); font-size: 12px; opacity: .75; }
 .doc .t { overflow-wrap: anywhere; }
+.search { display: block; width: 100%; font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; margin-bottom: 14px; }
+.nomatch { margin: 0; font-size: 13px; color: var(--muted); }
 .picker { display: none; }
+.picker .search { margin-bottom: 8px; }
 .picker select { width: 100%; font: inherit; font-size: 15px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
 
 .viewer { min-width: 0; }
@@ -82,6 +85,16 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
   .nav { display: none; }
   .picker { display: block; }
   .vhead h2 { font-size: 18px; }
+}
+@media print {
+  body { background: #fff; color: #000; padding: 0; }
+  .masthead .back, .masthead .tagline, .nav, .picker, .tools, .status, .lightbox { display: none !important; }
+  .layout { display: block; margin: 0; }
+  .masthead { border: 0; padding: 0 0 8px; }
+  .vhead { border: 0; }
+  .pages { gap: 0; }
+  .page { break-inside: avoid; page-break-inside: avoid; margin-bottom: 8mm; }
+  .page figcaption { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 </style>
@@ -125,7 +138,7 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
     });
     return el;
   }
-  function find(id) { for (var i = 0; i < guides.length; i++) if (guides[i].id === id) return guides[i]; return null; }
+  function find(id) { for (var i = 0; i < guides.length; i++) if (guides[i].id === id) return guides[i]; for (var j = 0; j < guides.length; j++) if (guides[j].no && guides[j].no === id) return guides[j]; return null; }
   function index(id) { for (var i = 0; i < guides.length; i++) if (guides[i].id === id) return i; return -1; }
   function groupsOf(list) {
     var order = [], map = {};
@@ -186,7 +199,7 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
   }
   function clearUrls() { urls.forEach(function (u) { URL.revokeObjectURL(u); }); urls = []; }
 
-  var pagesEl, statusEl, titleEl, subEl, openEl, prevBtn, nextBtn, selectEl, navEl;
+  var pagesEl, statusEl, titleEl, subEl, openEl, dlEl, prevBtn, nextBtn, selectEl, navEl, searchEls = [], query = '';
 
   function show(id) {
     var g = find(id) || guides[0];
@@ -199,6 +212,8 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
     titleEl.textContent = g.title;
     subEl.textContent = g.no || '';
     openEl.href = g.src;
+    dlEl.href = g.src;
+    dlEl.setAttribute('download', (g.no ? g.no + ' ' : '') + g.title + '.pdf');
     var i = index(g.id);
     prevBtn.disabled = i <= 0;
     nextBtn.disabled = i >= guides.length - 1;
@@ -254,6 +269,42 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
     });
   }
 
+  /* ---------- 검색 ---------- */
+  function matches(g) {
+    if (!query) return true;
+    return ((g.no || '') + ' ' + (g.group || '') + ' ' + g.title).toLowerCase().indexOf(query) >= 0;
+  }
+  function applyFilter() {
+    var shown = 0;
+    Array.prototype.forEach.call(navEl.querySelectorAll('li'), function (li) {
+      var g = find(li.firstChild.getAttribute('data-id'));
+      var ok = g && matches(g);
+      li.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    });
+    Array.prototype.forEach.call(navEl.querySelectorAll('.group'), function (gr) {
+      var any = Array.prototype.some.call(gr.querySelectorAll('li'), function (li) { return li.style.display !== 'none'; });
+      gr.style.display = any ? '' : 'none';
+    });
+    Array.prototype.forEach.call(selectEl.querySelectorAll('option'), function (o) {
+      var g = find(o.value); o.hidden = !(g && matches(g)); o.disabled = o.hidden;
+    });
+    Array.prototype.forEach.call(selectEl.querySelectorAll('optgroup'), function (og) {
+      og.hidden = !Array.prototype.some.call(og.querySelectorAll('option'), function (o) { return !o.hidden; });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.nomatch'), function (n) { n.style.display = shown ? 'none' : ''; });
+  }
+  function makeSearch() {
+    var inp = h('input', { class: 'search', type: 'search', placeholder: '제목이나 번호로 찾기', 'aria-label': '설명서 검색', autocomplete: 'off' });
+    inp.addEventListener('input', function () {
+      query = inp.value.trim().toLowerCase();
+      searchEls.forEach(function (o) { if (o !== inp) o.value = inp.value; });
+      applyFilter();
+    });
+    searchEls.push(inp);
+    return inp;
+  }
+
   /* ---------- 화면 ---------- */
   function build() {
     root.textContent = '';
@@ -263,7 +314,8 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
     }
     var groups = groupsOf(guides);
 
-    navEl = h('nav', { class: 'nav', 'aria-label': '설명서 목록' }, groups.map(function (gr) {
+    searchEls = []; query = '';
+    navEl = h('nav', { class: 'nav', 'aria-label': '설명서 목록' }, [makeSearch(), h('p', { class: 'nomatch', style: 'display:none', text: '찾는 설명서가 없습니다.' })].concat(groups.map(function (gr) {
       return h('div', { class: 'group' }, [
         h('h2', { text: gr.name }),
         h('ul', {}, gr.items.map(function (g) {
@@ -275,7 +327,7 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
           return h('li', {}, [b]);
         }))
       ]);
-    }));
+    })));
 
     selectEl = h('select', { id: 'docSelect', 'aria-label': '설명서 선택' }, groups.map(function (gr) {
       var og = h('optgroup', { label: gr.name }, gr.items.map(function (g) { return h('option', { value: g.id, text: label(g) }); }));
@@ -286,13 +338,15 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
     titleEl = h('h2');
     subEl = h('span', { class: 'sub' });
     openEl = h('a', { class: 'btn', href: '#', target: '_blank', rel: 'noopener', text: 'PDF로 열기' });
+    dlEl = h('a', { class: 'btn', href: '#', download: 'guide.pdf', text: 'PDF 내려받기' });
+    var printBtn = h('button', { class: 'btn', type: 'button', text: '인쇄', onclick: function () { window.print(); } });
     prevBtn = h('button', { class: 'btn', type: 'button', text: '← 이전 문서', onclick: function () { var i = index(current.id); if (i > 0) { show(guides[i - 1].id); window.scrollTo(0, 0); } } });
     nextBtn = h('button', { class: 'btn', type: 'button', text: '다음 문서 →', onclick: function () { var i = index(current.id); if (i < guides.length - 1) { show(guides[i + 1].id); window.scrollTo(0, 0); } } });
     pagesEl = h('div', { class: 'pages' });
     statusEl = h('p', { class: 'status', role: 'status', 'aria-live': 'polite' });
 
     var viewer = h('section', { class: 'viewer', 'aria-label': '설명서 보기' }, [
-      h('div', { class: 'vhead' }, [h('div', {}, [subEl, titleEl]), h('div', { class: 'tools' }, [prevBtn, nextBtn, openEl])]),
+      h('div', { class: 'vhead' }, [h('div', {}, [subEl, titleEl]), h('div', { class: 'tools' }, [prevBtn, nextBtn, dlEl, printBtn, openEl])]),
       statusEl,
       pagesEl,
       h('div', { class: 'tools' }, [
@@ -302,7 +356,7 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
     ]);
 
     root.appendChild(navEl);
-    root.appendChild(h('div', { class: 'picker' }, [selectEl]));
+    root.appendChild(h('div', { class: 'picker' }, [makeSearch(), selectEl]));
     root.appendChild(viewer);
   }
 

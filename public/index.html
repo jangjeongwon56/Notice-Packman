@@ -65,6 +65,7 @@ body {
 .body p { margin: 0 0 8px; white-space: pre-line; }
 .body ul { margin: 0 0 8px; padding-left: 1.2em; }
 .body li { margin: 2px 0; }
+.body a.gl { color: var(--accent); font-weight: 500; text-underline-offset: 3px; }
 .empty, .status { margin: 40px 0; color: var(--muted); }
 
 .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-top: 12px; max-width: 62ch; }
@@ -123,16 +124,29 @@ body {
     var m = /^(\d{4})-(\d{2})/.exec(d || '');
     return m ? m[1] + '년 ' + parseInt(m[2], 10) + '월' : '날짜 미정';
   }
+  var guideTitles = {};
+  // 글 안의 [[설명서 3-1]] 을 설명서 바로가기 링크로 바꿉니다.
+  function inline(text) {
+    var out = [], re = /\[\[\s*설명서\s+([0-9A-Za-z._-]{1,10})\s*\]\]/g, last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) out.push(text.slice(last, m.index));
+      var no = m[1], t = guideTitles[no];
+      out.push(h('a', { class: 'gl', href: '/guide/#' + encodeURIComponent(no), text: '설명서 ' + no + (t ? ' ' + t : '') + ' 보기 ›' }));
+      last = re.lastIndex;
+    }
+    if (last < text.length) out.push(text.slice(last));
+    return out;
+  }
   function bodyEl(text) {
     var wrap = h('div', { class: 'body' });
     var ul = null, para = [];
-    function flush() { if (para.length) { wrap.appendChild(h('p', { text: para.join('\n') })); para = []; } }
+    function flush() { if (para.length) { wrap.appendChild(h('p', {}, inline(para.join('\n')))); para = []; } }
     String(text || '').split(/\r?\n/).forEach(function (line) {
       var m = /^\s*[-•*]\s+(.*)$/.exec(line);
       if (m) {
         flush();
         if (!ul) { ul = h('ul'); wrap.appendChild(ul); }
-        ul.appendChild(h('li', { text: m[1] }));
+        ul.appendChild(h('li', {}, inline(m[1])));
       } else if (!line.trim()) { flush(); ul = null; }
       else { ul = null; para.push(line); }
     });
@@ -230,6 +244,11 @@ body {
   }
 
   function load() {
+    fetch('/api/guides').then(function (r) { return r.ok ? r.json() : null; }).then(function (g) {
+      if (g && Array.isArray(g.items)) g.items.forEach(function (x) { if (x.no) guideTitles[x.no] = x.title; });
+    }).catch(function () {}).then(loadPosts);
+  }
+  function loadPosts() {
     fetch('/api/posts').then(function (r) {
       if (!r.ok) throw new Error('load');
       return r.json();

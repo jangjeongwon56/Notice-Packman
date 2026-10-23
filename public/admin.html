@@ -333,6 +333,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 
     root.appendChild(h('section', { class: 'panel' }, [
       h('h2', { text: '기초설명서 관리 (' + items.length + ')' }),
+      h('p', { class: 'hint', text: '업데이트 글 내용에 [[설명서 3-1]] 처럼 쓰면 그 설명서로 가는 바로가기 링크가 됩니다. (번호는 아래 목록의 번호)' }),
       h('p', { class: 'hint', text: '거래처 화면의 "기초설명서" 버튼에 보이는 문서입니다. 바꾸면 바로 저장됩니다. 문서는 PDF로 올립니다. PowerPoint에서 [파일 → 내보내기 → PDF/XPS 문서 만들기] 또는 [다른 이름으로 저장 → PDF]를 선택해 만든 파일을 사용하세요.' }),
       h('p', { class: 'msg ' + S.gKind, role: 'status', 'aria-live': 'polite', text: S.gMsg }),
       dl
@@ -494,7 +495,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
       h('h2', { text: S.editingId ? '글 수정' : '새 글 쓰기' }),
       h('div', { class: 'grid2' }, [field('f-date', '날짜', date), field('f-cat', '분류', sel)]),
       field('f-title', '제목', title),
-      field('f-body', '내용', body),
+      field('f-body', '내용', body, '설명서로 연결하려면 [[설명서 3-1]] 처럼 적습니다. (번호는 아래 "기초설명서 관리" 목록 참고)'),
       field('f-img', '사진', imgInput, imgHint),
       f.images.length ? thumbs : null,
       S.imgNote ? h('p', { class: 'msg err', text: S.imgNote }) : null,
