@@ -314,7 +314,7 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
       var blob = new Blob([bytes], { type: 'application/pdf' });
       var u = URL.createObjectURL(blob);
       var a = document.createElement('a');
-      a.href = u; a.download = 'SIB PACKMAN ERP 기초설명서 전체.pdf';
+      a.href = u; a.download = 'SIB ERP 기초설명서 전체.pdf';
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
       setAll('전체 PDF 받기', false);
