@@ -50,9 +50,12 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
 .doc .no { font-family: var(--font-mono); font-size: 12px; opacity: .75; }
 .doc .t { overflow-wrap: anywhere; }
 .search { display: block; width: 100%; font: inherit; font-size: 14px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 9px 10px; margin-bottom: 14px; }
+.allbtn { width: 100%; margin-bottom: 14px; background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.allbtn:disabled { opacity: .7; }
 .nomatch { margin: 0; font-size: 13px; color: var(--muted); }
 .picker { display: none; }
 .picker .search { margin-bottom: 8px; }
+.picker .allbtn { margin: 10px 0 0; }
 .picker select { width: 100%; font: inherit; font-size: 15px; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 10px; }
 
 .viewer { min-width: 0; }
@@ -269,6 +272,63 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
     });
   }
 
+  /* ---------- 전체 PDF 받기 ---------- */
+  var allBtns = [], merging = false;
+  function loadPdfLib() {
+    if (window.PDFLib) return Promise.resolve(window.PDFLib);
+    return new Promise(function (resolve, reject) {
+      var sc = document.createElement('script');
+      sc.src = '/guide/vendor/pdf-lib.min.js';
+      sc.onload = function () { window.PDFLib ? resolve(window.PDFLib) : reject(new Error('lib')); };
+      sc.onerror = function () { reject(new Error('lib')); };
+      document.head.appendChild(sc);
+    });
+  }
+  function setAll(text, busy) { allBtns.forEach(function (b) { b.textContent = text; b.disabled = !!busy; }); }
+  function downloadAll() {
+    if (merging || !guides.length) return;
+    merging = true;
+    var total = guides.length;
+    setAll('PDF 합치는 중… 0 / ' + total, true);
+    loadPdfLib().then(function (L) {
+      return L.PDFDocument.create().then(function (out) {
+        var chain = Promise.resolve();
+        guides.forEach(function (g, i) {
+          chain = chain.then(function () {
+            return fetch(g.src).then(function (r) {
+              if (!r.ok) throw new Error('fetch');
+              return r.arrayBuffer();
+            }).then(function (buf) {
+              return L.PDFDocument.load(buf, { ignoreEncryption: true });
+            }).then(function (doc) {
+              return out.copyPages(doc, doc.getPageIndices());
+            }).then(function (pages) {
+              pages.forEach(function (p) { out.addPage(p); });
+              setAll('PDF 합치는 중… ' + (i + 1) + ' / ' + total, true);
+            });
+          });
+        });
+        return chain.then(function () { return out.save(); });
+      });
+    }).then(function (bytes) {
+      var blob = new Blob([bytes], { type: 'application/pdf' });
+      var u = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = u; a.download = 'SIB ERP 기초설명서 전체.pdf';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
+      setAll('전체 PDF 받기', false);
+    }).catch(function () {
+      setAll('전체 PDF 받기', false);
+      window.alert('전체 PDF를 만들지 못했습니다. 문서별 "PDF 내려받기"를 이용해 주세요.');
+    }).then(function () { merging = false; });
+  }
+  function makeAllBtn() {
+    var b = h('button', { class: 'btn allbtn', type: 'button', text: '전체 PDF 받기', onclick: downloadAll });
+    allBtns.push(b);
+    return b;
+  }
+
   /* ---------- 검색 ---------- */
   function matches(g) {
     if (!query) return true;
@@ -314,8 +374,8 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
     }
     var groups = groupsOf(guides);
 
-    searchEls = []; query = '';
-    navEl = h('nav', { class: 'nav', 'aria-label': '설명서 목록' }, [makeSearch(), h('p', { class: 'nomatch', style: 'display:none', text: '찾는 설명서가 없습니다.' })].concat(groups.map(function (gr) {
+    searchEls = []; allBtns = []; query = '';
+    navEl = h('nav', { class: 'nav', 'aria-label': '설명서 목록' }, [makeSearch(), makeAllBtn(), h('p', { class: 'nomatch', style: 'display:none', text: '찾는 설명서가 없습니다.' })].concat(groups.map(function (gr) {
       return h('div', { class: 'group' }, [
         h('h2', { text: gr.name }),
         h('ul', {}, gr.items.map(function (g) {
@@ -356,7 +416,7 @@ a:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid
     ]);
 
     root.appendChild(navEl);
-    root.appendChild(h('div', { class: 'picker' }, [makeSearch(), selectEl]));
+    root.appendChild(h('div', { class: 'picker' }, [makeSearch(), selectEl, makeAllBtn()]));
     root.appendChild(viewer);
   }
 
